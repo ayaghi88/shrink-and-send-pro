@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
@@ -9,6 +8,7 @@ import ProgressModal from "@/components/ProgressModal";
 import PricingSection from "@/components/PricingSection";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { sendEmail, compressFiles } from "@/services/emailService";
 
 interface FileItem {
   id: string;
@@ -78,7 +78,7 @@ const Index = () => {
     }
   };
 
-  const handleSendEmail = (emailData: {
+  const handleSendEmail = async (emailData: {
     recipients: string[];
     subject: string;
     message: string;
@@ -88,6 +88,33 @@ const Index = () => {
     console.log("Compression level:", compressionLevel);
     
     setIsProcessing(true);
+    
+    try {
+      // First compress the files
+      const compressionResult = await compressFiles(files, compressionLevel);
+      console.log("Compression completed:", compressionResult);
+      
+      // Then send the email
+      const emailResult = await sendEmail({
+        ...emailData,
+        files: files as any // In real implementation, this would be the compressed files
+      });
+      
+      if (emailResult.success) {
+        console.log("Email sent successfully:", emailResult.message);
+      } else {
+        throw new Error(emailResult.error || "Failed to send email");
+      }
+      
+    } catch (error) {
+      console.error("Error in email process:", error);
+      setIsProcessing(false);
+      toast({
+        title: "Error sending email",
+        description: "There was a problem sending your files. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleProcessingComplete = () => {
