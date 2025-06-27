@@ -29,9 +29,11 @@ const Header = () => {
   return (
     <header className="w-full px-6 py-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border/50">
       <div className="flex items-center space-x-3">
-        <div className="w-8 h-8 bg-gradient-to-br from-electric-500 to-electric-600 rounded-lg flex items-center justify-center shadow-lg">
-          <span className="text-white font-bold text-sm">S</span>
-        </div>
+        <img 
+          src="/lovable-uploads/5f5bf873-3f73-4660-9769-124e7507faff.png" 
+          alt="Shrink & Send Logo" 
+          className="w-10 h-10"
+        />
         <div>
           <h1 className="text-xl font-bold text-foreground">Shrink & Send</h1>
           <p className="text-xs text-muted-foreground">Professional compression meets one-click delivery</p>
