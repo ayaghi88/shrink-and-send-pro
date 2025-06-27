@@ -6,6 +6,7 @@ import FileUploadZone from "@/components/FileUploadZone";
 import CompressionSettings, { CompressionLevel } from "@/components/CompressionSettings";
 import EmailComposer from "@/components/EmailComposer";
 import ProgressModal from "@/components/ProgressModal";
+import PricingSection from "@/components/PricingSection";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
 
@@ -225,6 +226,9 @@ const Index = () => {
           )}
         </div>
       </main>
+
+      {/* Pricing Section */}
+      <PricingSection />
 
       <ProgressModal
         isOpen={isProcessing}
