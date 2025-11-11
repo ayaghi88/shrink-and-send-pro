@@ -90,15 +90,15 @@ const Index = () => {
     setIsProcessing(true);
     
     try {
-      // First compress the files
+      // Get file info for UI
       const compressionResult = await compressFiles(files, compressionLevel);
-      console.log("Compression completed:", compressionResult);
+      console.log("Compression info:", compressionResult);
       
-      // Then send the email
+      // Send the email with files (compression happens on backend)
       const emailResult = await sendEmail({
         ...emailData,
-        files: files as any // In real implementation, this would be the compressed files
-      });
+        files: files as any
+      }, compressionLevel);
       
       if (emailResult.success) {
         console.log("Email sent successfully:", emailResult.message);

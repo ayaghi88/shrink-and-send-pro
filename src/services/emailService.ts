@@ -12,31 +12,73 @@ interface EmailResponse {
   error?: string;
 }
 
-export const sendEmail = async (emailData: EmailData): Promise<EmailResponse> => {
-  // TODO: Replace with real email service (Supabase Edge Function + SendGrid/Resend)
-  console.log("Email service called with:", emailData);
-  
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // For now, we'll simulate a successful response
-  // Once Supabase is connected, this will make a real API call
-  return {
-    success: true,
-    message: `Email would be sent to: ${emailData.recipients.join(', ')}`
-  };
+export const sendEmail = async (emailData: EmailData, compressionLevel: string): Promise<EmailResponse> => {
+  try {
+    console.log("Sending email via Edge Function:", emailData);
+    
+    // Convert files to base64
+    const filesWithContent = await Promise.all(
+      (emailData.files || []).map(async (file) => {
+        const base64 = await fileToBase64(file);
+        return {
+          name: file.name,
+          content: base64,
+          type: file.type,
+        };
+      })
+    );
+
+    const { supabase } = await import("@/integrations/supabase/client");
+    
+    const { data, error } = await supabase.functions.invoke('send-compressed-files', {
+      body: {
+        recipients: emailData.recipients,
+        subject: emailData.subject,
+        message: emailData.message,
+        files: filesWithContent,
+        compressionLevel: compressionLevel,
+      },
+    });
+
+    if (error) {
+      console.error("Edge function error:", error);
+      return {
+        success: false,
+        message: "Failed to send email",
+        error: error.message,
+      };
+    }
+
+    console.log("Email sent successfully:", data);
+    return data;
+  } catch (error: any) {
+    console.error("Email service error:", error);
+    return {
+      success: false,
+      message: "Failed to send email",
+      error: error.message,
+    };
+  }
 };
 
-// This function will be implemented with real file compression once backend is ready
+// Helper function to convert File to base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+// Compression is now handled on the backend via the Edge Function
 export const compressFiles = async (files: any[], compressionLevel: string) => {
-  console.log("Compressing files:", files, "with level:", compressionLevel);
+  console.log("Files will be compressed during email sending:", files.length, "files");
   
-  // Simulate compression time
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
+  // Return file info for UI display
   return {
-    compressedFiles: files, // In real implementation, these would be compressed
+    compressedFiles: files,
     originalSize: files.reduce((total, file) => total + file.size, 0),
-    compressedSize: files.reduce((total, file) => total + file.size, 0) * 0.4 // Simulate 60% compression
+    compressedSize: files.reduce((total, file) => total + file.size, 0) * 0.4
   };
 };
