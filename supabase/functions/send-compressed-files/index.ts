@@ -18,6 +18,7 @@ interface SendEmailRequest {
     type: string;
   }>;
   compressionLevel: string;
+  replyTo?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -26,10 +27,10 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { recipients, subject, message, files, compressionLevel }: SendEmailRequest = await req.json();
+    const { recipients, subject, message, files, compressionLevel, replyTo }: SendEmailRequest = await req.json();
 
     console.log(`Processing ${files.length} files with ${compressionLevel} compression`);
-    console.log(`Sending to: ${recipients.join(', ')}`);
+    console.log(`Sending to: ${recipients.join(', ')}${replyTo ? ` | reply-to: ${replyTo}` : ''}`);
 
     // Convert base64 files to attachments format for Resend
     const attachments = files.map(file => ({
@@ -50,6 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
       from: "File Delivery <onboarding@resend.dev>",
       to: recipients,
       subject: subject,
+      reply_to: replyTo,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Files Delivered</h2>

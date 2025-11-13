@@ -82,6 +82,7 @@ const Index = () => {
     recipients: string[];
     subject: string;
     message: string;
+    replyTo?: string;
   }) => {
     console.log("Sending email with data:", emailData);
     console.log("Files to compress:", files);
@@ -111,7 +112,7 @@ const Index = () => {
       setIsProcessing(false);
       toast({
         title: "Error sending email",
-        description: "There was a problem sending your files. Please try again.",
+        description: (error as any)?.message || "There was a problem sending your files. Please try again.",
         variant: "destructive"
       });
     }

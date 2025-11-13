@@ -13,6 +13,7 @@ interface EmailComposerProps {
     recipients: string[];
     subject: string;
     message: string;
+    replyTo?: string;
   }) => void;
 }
 
@@ -21,6 +22,7 @@ const EmailComposer = ({ onSend }: EmailComposerProps) => {
   const [currentEmail, setCurrentEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [replyTo, setReplyTo] = useState('');
 
   const addRecipient = () => {
     if (currentEmail && isValidEmail(currentEmail) && !recipients.includes(currentEmail)) {
@@ -49,7 +51,8 @@ const EmailComposer = ({ onSend }: EmailComposerProps) => {
       onSend({
         recipients,
         subject: subject.trim(),
-        message: message.trim()
+        message: message.trim(),
+        replyTo: isValidEmail(replyTo) ? replyTo.trim() : undefined,
       });
     }
   };
@@ -110,6 +113,20 @@ const EmailComposer = ({ onSend }: EmailComposerProps) => {
                 </div>
               )}
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="replyTo" className="text-sm font-medium text-foreground">
+              Your email for replies (optional)
+            </Label>
+            <Input
+              id="replyTo"
+              type="email"
+              placeholder="you@example.com"
+              value={replyTo}
+              onChange={(e) => setReplyTo(e.target.value)}
+              className="mt-2"
+            />
           </div>
 
           <div>

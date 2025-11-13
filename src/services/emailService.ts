@@ -4,6 +4,7 @@ interface EmailData {
   subject: string;
   message: string;
   files?: File[];
+  replyTo?: string;
 }
 
 interface EmailResponse {
@@ -37,6 +38,7 @@ export const sendEmail = async (emailData: EmailData, compressionLevel: string):
         message: emailData.message,
         files: filesWithContent,
         compressionLevel: compressionLevel,
+        replyTo: emailData.replyTo,
       },
     });
 
