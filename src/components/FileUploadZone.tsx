@@ -9,6 +9,7 @@ interface FileItem {
   name: string;
   size: number;
   type: string;
+  file: File; // keep the actual Blob for sending
 }
 
 interface FileUploadZoneProps {
@@ -58,7 +59,8 @@ const FileUploadZone = ({ files, onFilesChange }: FileUploadZoneProps) => {
       id: Math.random().toString(36).substr(2, 9),
       name: file.name,
       size: file.size,
-      type: file.type
+      type: file.type,
+      file,
     }));
     
     onFilesChange([...files, ...fileItems]);

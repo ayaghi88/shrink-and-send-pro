@@ -15,6 +15,7 @@ interface FileItem {
   name: string;
   size: number;
   type: string;
+  file: File;
 }
 
 const Index = () => {
@@ -98,7 +99,7 @@ const Index = () => {
       // Send the email with files (compression happens on backend)
       const emailResult = await sendEmail({
         ...emailData,
-        files: files as any
+        files: files.map(f => f.file) as any
       }, compressionLevel);
       
       if (emailResult.success) {
