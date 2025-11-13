@@ -42,10 +42,20 @@ export const sendEmail = async (emailData: EmailData, compressionLevel: string):
 
     if (error) {
       console.error("Edge function error:", error);
+      console.error("Error details:", JSON.stringify(error, null, 2));
       return {
         success: false,
         message: "Failed to send email",
-        error: error.message,
+        error: error.message || JSON.stringify(error),
+      };
+    }
+
+    if (!data || !data.success) {
+      console.error("Email send failed:", data);
+      return {
+        success: false,
+        message: data?.message || "Email service returned an error",
+        error: data?.error || "Unknown error",
       };
     }
 

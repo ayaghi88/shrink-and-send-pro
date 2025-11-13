@@ -48,8 +48,8 @@ const PricingSection = () => {
                   <span className="text-sm">Up to 100MB per package</span>
                 </div>
               </div>
-              <Button className="w-full mt-6" variant="outline">
-                Get Started Free
+              <Button className="w-full mt-6" variant="outline" disabled>
+                Current Plan
               </Button>
             </CardContent>
           </Card>
@@ -98,8 +98,8 @@ const PricingSection = () => {
                   <span className="text-sm">Priority support</span>
                 </div>
               </div>
-              <Button className="w-full mt-6 bg-electric-500 hover:bg-electric-600 text-white">
-                Upgrade to Premium
+              <Button className="w-full mt-6 bg-electric-500 hover:bg-electric-600 text-white" disabled>
+                Coming Soon
               </Button>
             </CardContent>
           </Card>
