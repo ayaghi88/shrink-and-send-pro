@@ -76,6 +76,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_subscription_status: {
+        Args: { lookup_email: string }
+        Returns: {
+          plan: string
+          status: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
