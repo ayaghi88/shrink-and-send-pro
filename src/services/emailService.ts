@@ -1,4 +1,4 @@
-import JSZip from "jszip";
+import { compressFiles as compressImages, CompressedFile } from "@/services/fileCompressionService";
 
 interface EmailData {
   recipients: string[];
@@ -14,59 +14,49 @@ interface EmailResponse {
   error?: string;
 }
 
-const compressionOptions: Record<string, "STORE" | "DEFLATE"> = {
-  basic: "DEFLATE",
-  medium: "DEFLATE",
-  max: "DEFLATE",
-};
-
-const compressionLevels: Record<string, number> = {
-  basic: 3,
-  medium: 6,
-  max: 9,
-};
-
-/** Zip all files on-device and return a single base64-encoded .zip */
-export const compressFilesToZip = async (
-  files: File[],
-  compressionLevel: string
-): Promise<{ base64: string; blob: Blob; originalSize: number; compressedSize: number }> => {
-  const zip = new JSZip();
-
-  let originalSize = 0;
-  for (const file of files) {
-    zip.file(file.name, file);
-    originalSize += file.size;
-  }
-
-  const level = compressionLevels[compressionLevel] ?? 6;
-
-  const blob = await zip.generateAsync({
-    type: "blob",
-    compression: compressionOptions[compressionLevel] ?? "DEFLATE",
-    compressionOptions: { level },
+/** Convert a Blob to a base64 data-URL */
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(blob);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
   });
-
-  const base64 = await blobToBase64(blob);
-
-  return { base64, blob, originalSize, compressedSize: blob.size };
 };
 
 export const sendEmail = async (emailData: EmailData, compressionLevel: string): Promise<EmailResponse> => {
   try {
-    const files = emailData.files || [];
+    const rawFiles = emailData.files || [];
+    if (rawFiles.length === 0) {
+      return { success: false, message: "No files to send", error: "No files provided" };
+    }
 
-    // Compress all files into a single zip on-device
-    const { base64, blob, originalSize, compressedSize } = await compressFilesToZip(files, compressionLevel);
+    // Compress images on-device (videos/other files pass through as-is)
+    const compressed: CompressedFile[] = await compressImages(rawFiles, compressionLevel);
+
+    // Convert each file to a base64 attachment — NO zipping
+    const attachments: Array<{ name: string; content: string; type: string }> = [];
+    let totalBytes = 0;
+
+    for (const file of compressed) {
+      const base64 = await blobToBase64(file.blob);
+      totalBytes += file.compressedSize;
+      attachments.push({
+        name: file.name,
+        content: base64,
+        type: file.blob.type || "application/octet-stream",
+      });
+    }
+
     console.log(
-      `Compressed ${files.length} files: ${(originalSize / 1024 / 1024).toFixed(2)} MB → ${(compressedSize / 1024 / 1024).toFixed(2)} MB`
+      `Sending ${attachments.length} individual files (${(totalBytes / 1024 / 1024).toFixed(2)} MB total)`
     );
 
-    // Resend has a 40MB attachment limit; base64 inflates ~33%
-    if (compressedSize > 25 * 1024 * 1024) {
+    // Resend 40 MB attachment cap; base64 inflates ~33 %
+    if (totalBytes > 25 * 1024 * 1024) {
       return {
         success: false,
-        message: "Compressed file is too large to email (max ~25 MB). Use the download option instead.",
+        message: "Files are too large to email (max ~25 MB total). Use the download option instead.",
         error: "File too large for email delivery",
       };
     }
@@ -78,14 +68,7 @@ export const sendEmail = async (emailData: EmailData, compressionLevel: string):
         recipients: emailData.recipients,
         subject: emailData.subject,
         message: emailData.message,
-        // Send a single zip attachment instead of individual files
-        files: [
-          {
-            name: "attachments.zip",
-            content: base64,
-            type: "application/zip",
-          },
-        ],
+        files: attachments,
         compressionLevel,
         replyTo: emailData.replyTo,
       },
@@ -119,21 +102,4 @@ export const sendEmail = async (emailData: EmailData, compressionLevel: string):
       error: error.message,
     };
   }
-};
-
-// Helper: Blob → base64 data-URL
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(blob);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
-  });
-};
-
-/** Get real compressed size preview (quick estimate via JSZip) */
-export const compressFiles = async (files: { file: File; size: number }[], compressionLevel: string) => {
-  const fileObjects = files.map((f) => f.file);
-  const { originalSize, compressedSize } = await compressFilesToZip(fileObjects, compressionLevel);
-  return { compressedFiles: files, originalSize, compressedSize };
 };
