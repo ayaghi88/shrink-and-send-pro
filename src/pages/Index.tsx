@@ -9,7 +9,7 @@ import ProgressModal from "@/components/ProgressModal";
 import PricingSection from "@/components/PricingSection";
 import TestModeBanner from "@/components/TestModeBanner";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, Check, Loader2 } from "lucide-react";
 import { sendEmail, compressFiles, compressFilesToZip } from "@/services/emailService";
 
 interface FileItem {
@@ -25,12 +25,14 @@ const Index = () => {
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('medium');
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [downloadComplete, setDownloadComplete] = useState(false);
+  const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null);
   const { toast } = useToast();
   const { isTestMode, disableTestMode } = useTestMode();
   const steps = [
     { number: 1, title: "Upload Files", description: "Add your files to compress" },
     { number: 2, title: "Choose Compression", description: "Select compression level" },
-    { number: 3, title: "Email Delivery", description: "Send to recipients" }
+    { number: 3, title: "Compress & Download", description: "Get your compressed files" }
   ];
 
   const getTotalSize = () => {
@@ -70,6 +72,12 @@ const Index = () => {
       return;
     }
     
+    if (currentStep === 2) {
+      // Auto-compress and download when moving to step 3
+      handleCompressAndDownload();
+      return;
+    }
+
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     }
@@ -77,6 +85,8 @@ const Index = () => {
 
   const handlePreviousStep = () => {
     if (currentStep > 1) {
+      setDownloadComplete(false);
+      setCompressedBlob(null);
       setCurrentStep(currentStep - 1);
     }
   };
@@ -85,14 +95,18 @@ const Index = () => {
 
   const totalSizeExceeded = getTotalSize() > MAX_TOTAL_SIZE;
 
-  const handleDownload = async () => {
+  const handleCompressAndDownload = async () => {
     if (files.length === 0) return;
     setIsProcessing(true);
+    setCurrentStep(3);
     try {
       const { blob } = await compressFilesToZip(
         files.map((f) => f.file),
         compressionLevel
       );
+      setCompressedBlob(blob);
+
+      // Auto-download
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -101,9 +115,15 @@ const Index = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      handleProcessingComplete();
+
+      setIsProcessing(false);
+      setDownloadComplete(true);
+      toast({
+        title: "Files compressed!",
+        description: "Your download has started. You can also email the files below.",
+      });
     } catch (error) {
-      console.error("Download error:", error);
+      console.error("Compression error:", error);
       setIsProcessing(false);
       toast({
         title: "Error compressing files",
@@ -111,6 +131,18 @@ const Index = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleRedownload = () => {
+    if (!compressedBlob) return;
+    const url = URL.createObjectURL(compressedBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "compressed-files.zip";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleSendEmail = async (emailData: {
@@ -160,12 +192,14 @@ const Index = () => {
 
   const handleProcessingComplete = () => {
     setIsProcessing(false);
+    setDownloadComplete(false);
+    setCompressedBlob(null);
     setFiles([]);
     setCurrentStep(1);
     
     toast({
       title: "Files sent successfully!",
-      description: "Your compressed files have been delivered.",
+      description: "Your compressed files have been delivered via email.",
     });
   };
 
@@ -267,25 +301,41 @@ const Index = () => {
           )}
 
           {currentStep === 3 && (
-            <div className="space-y-6">
-              <EmailComposer onSend={handleSendEmail} />
-              
-              <div className="w-full max-w-4xl mx-auto">
-                <div className="relative flex items-center justify-center my-6">
-                  <div className="border-t border-border w-full" />
-                  <span className="bg-background px-4 text-sm text-muted-foreground absolute">or</span>
+            <div className="w-full max-w-4xl mx-auto space-y-8">
+              {/* Download Complete Section */}
+              {downloadComplete && (
+                <div className="bg-card rounded-xl border border-border p-8 shadow-sm text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground">Download Complete!</h3>
+                  <p className="text-muted-foreground">Your compressed files have been downloaded.</p>
+                  <Button onClick={handleRedownload} variant="outline">
+                    Download Again
+                  </Button>
                 </div>
-                
-                <Button
-                  onClick={handleDownload}
-                  variant="outline"
-                  className="w-full py-6 text-base"
-                  disabled={files.length === 0}
-                >
-                  <ArrowRight className="w-5 h-5 mr-2 rotate-90" />
-                  Download Compressed ZIP
-                </Button>
-              </div>
+              )}
+
+              {isProcessing && (
+                <div className="bg-card rounded-xl border border-border p-8 shadow-sm text-center space-y-4">
+                  <Loader2 className="w-10 h-10 animate-spin mx-auto text-electric-500" />
+                  <h3 className="text-xl font-semibold text-foreground">Compressing your files...</h3>
+                  <p className="text-muted-foreground">This may take a moment.</p>
+                </div>
+              )}
+
+              {/* Optional Email Section */}
+              {downloadComplete && (
+                <>
+                  <div className="relative flex items-center justify-center">
+                    <div className="border-t border-border w-full" />
+                    <span className="bg-background px-4 text-sm text-muted-foreground absolute">
+                      Want to email it too?
+                    </span>
+                  </div>
+                  <EmailComposer onSend={handleSendEmail} />
+                </>
+              )}
             </div>
           )}
         </div>
@@ -302,12 +352,23 @@ const Index = () => {
             </Button>
           )}
           
-          {currentStep < 3 && (
+          {currentStep === 1 && (
             <Button
               onClick={handleNextStep}
               className="bg-electric-500 hover:bg-electric-600 text-white px-8"
             >
               Continue
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+          
+          {currentStep === 2 && (
+            <Button
+              onClick={handleNextStep}
+              className="bg-electric-500 hover:bg-electric-600 text-white px-8"
+              disabled={totalSizeExceeded}
+            >
+              Compress & Download
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           )}
