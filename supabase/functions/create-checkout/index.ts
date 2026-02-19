@@ -1,12 +1,26 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+function isRateLimited(key: string, maxRequests = 5, windowMs = 3600000): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    return false;
+  }
+  entry.count++;
+  return entry.count > maxRequests;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -16,8 +30,39 @@ serve(async (req) => {
   try {
     const { email, returnUrl } = await req.json();
 
-    if (!email) {
-      throw new Error("Email is required");
+    // Validate email
+    if (!email || typeof email !== "string" || !emailRegex.test(email) || email.length > 255) {
+      return new Response(
+        JSON.stringify({ error: "A valid email address is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate returnUrl to prevent open redirect
+    if (returnUrl) {
+      try {
+        const url = new URL(returnUrl);
+        const allowedHosts = ["shrink-and-send-pro.lovable.app", "localhost"];
+        // Also allow the preview URL host
+        const previewPattern = /\.lovable\.app$/;
+        if (!allowedHosts.includes(url.hostname) && !previewPattern.test(url.hostname)) {
+          throw new Error("Invalid return URL");
+        }
+      } catch {
+        return new Response(
+          JSON.stringify({ error: "Invalid return URL" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Rate limit by IP
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (isRateLimited(ip)) {
+      return new Response(
+        JSON.stringify({ error: "Too many requests. Please try again later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
@@ -48,6 +93,9 @@ serve(async (req) => {
       customerId = customer.id;
     }
 
+    const successUrl = returnUrl ? `${returnUrl}?checkout=success` : undefined;
+    const cancelUrl = returnUrl ? `${returnUrl}?checkout=cancelled` : undefined;
+
     // Create a checkout session for a $9.99/mo subscription
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -66,8 +114,8 @@ serve(async (req) => {
           quantity: 1,
         },
       ],
-      success_url: `${returnUrl}?checkout=success`,
-      cancel_url: `${returnUrl}?checkout=cancelled`,
+      ...(successUrl && { success_url: successUrl }),
+      ...(cancelUrl && { cancel_url: cancelUrl }),
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
@@ -76,7 +124,7 @@ serve(async (req) => {
     });
   } catch (error: any) {
     console.error("Checkout error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: "An error occurred processing your request" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
