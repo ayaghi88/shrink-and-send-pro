@@ -9,6 +9,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+function isRateLimited(key: string, maxRequests = 10, windowMs = 3600000): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    return false;
+  }
+  entry.count++;
+  return entry.count > maxRequests;
+}
+
 interface SendEmailRequest {
   recipients: string[];
   subject: string;
@@ -32,6 +45,14 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { recipients, subject, message, files, compressionLevel, replyTo }: SendEmailRequest = await req.json();
+
+    // Rate limit by IP
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+    if (isRateLimited(ip, 10, 3600000)) {
+      return new Response(JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later." }), {
+        status: 429, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
     // --- Input validation ---
     if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
