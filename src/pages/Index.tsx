@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useTestMode } from "@/hooks/useTestMode";
+
 import Header from "@/components/Header";
 import FileUploadZone from "@/components/FileUploadZone";
 import CompressionSettings, { CompressionLevel } from "@/components/CompressionSettings";
 import EmailComposer from "@/components/EmailComposer";
 import PricingSection from "@/components/PricingSection";
-import TestModeBanner from "@/components/TestModeBanner";
+
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -33,7 +33,7 @@ const Index = () => {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const { toast } = useToast();
-  const { isTestMode, disableTestMode } = useTestMode();
+  
   const steps = [
     { number: 1, title: "Upload Files", description: "Add your files to compress" },
     { number: 2, title: "Choose Compression", description: "Select compression level" },
@@ -369,7 +369,7 @@ const Index = () => {
 
       <PricingSection />
       <Footer />
-      {isTestMode && <TestModeBanner onDisable={disableTestMode} />}
+      
     </div>
   );
 };
