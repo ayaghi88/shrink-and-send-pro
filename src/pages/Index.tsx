@@ -8,6 +8,7 @@ import EmailComposer from "@/components/EmailComposer";
 import ProgressModal from "@/components/ProgressModal";
 import PricingSection from "@/components/PricingSection";
 import TestModeBanner from "@/components/TestModeBanner";
+import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, Check, Loader2, Mail } from "lucide-react";
 import { sendEmail, compressFiles, compressFilesToZip } from "@/services/emailService";
@@ -119,8 +120,8 @@ const Index = () => {
       setIsProcessing(false);
       setDownloadComplete(true);
       toast({
-        title: "Files compressed!",
-        description: "Your download has started. You can also email the files below.",
+        title: "Download started!",
+        description: "Your compressed files are downloading.",
       });
     } catch (error) {
       console.error("Compression error:", error);
@@ -383,6 +384,9 @@ const Index = () => {
 
       {/* Pricing Section */}
       <PricingSection />
+
+      {/* Footer */}
+      <Footer />
 
       <ProgressModal
         isOpen={isProcessing}
