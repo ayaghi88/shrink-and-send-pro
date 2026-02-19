@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useTestMode } from "@/hooks/useTestMode";
 import Header from "@/components/Header";
 import FileUploadZone from "@/components/FileUploadZone";
 import CompressionSettings, { CompressionLevel } from "@/components/CompressionSettings";
 import EmailComposer from "@/components/EmailComposer";
 import ProgressModal from "@/components/ProgressModal";
 import PricingSection from "@/components/PricingSection";
+import TestModeBanner from "@/components/TestModeBanner";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { sendEmail, compressFiles } from "@/services/emailService";
@@ -24,7 +26,7 @@ const Index = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
-
+  const { isTestMode, disableTestMode } = useTestMode();
   const steps = [
     { number: 1, title: "Upload Files", description: "Add your files to compress" },
     { number: 2, title: "Choose Compression", description: "Select compression level" },
@@ -79,7 +81,7 @@ const Index = () => {
     }
   };
 
-  const MAX_TOTAL_SIZE = 20 * 1024 * 1024; // 20MB
+  const MAX_TOTAL_SIZE = isTestMode ? 2 * 1024 * 1024 * 1024 : 20 * 1024 * 1024; // 2GB in test mode, 20MB otherwise
 
   const totalSizeExceeded = getTotalSize() > MAX_TOTAL_SIZE;
 
@@ -285,6 +287,8 @@ const Index = () => {
         onClose={() => setIsProcessing(false)}
         onComplete={handleProcessingComplete}
       />
+
+      {isTestMode && <TestModeBanner onDisable={disableTestMode} />}
     </div>
   );
 };
