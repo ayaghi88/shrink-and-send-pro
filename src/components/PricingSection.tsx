@@ -119,15 +119,7 @@ const PricingSection = () => {
                 </div>
                 <div className="flex items-center space-x-3">
                   <Check className="w-5 h-5 text-green-500" />
-                  <span className="text-sm">Password protection</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Check className="w-5 h-5 text-green-500" />
                   <span className="text-sm">Up to 2GB per package</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span className="text-sm">Bulk operations</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <Check className="w-5 h-5 text-green-500" />
