@@ -1,9 +1,45 @@
-
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Zap, Crown } from "lucide-react";
+import { Check, Zap, Crown, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const PricingSection = () => {
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubscribe = async () => {
+    const email = prompt("Enter your email to subscribe:");
+    if (!email) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { email, returnUrl: window.location.origin },
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: "Already subscribed", description: data.error });
+        return;
+      }
+
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      console.error("Checkout error:", err);
+      toast({
+        title: "Error",
+        description: "Could not start checkout. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section className="py-16 px-4 bg-gradient-to-br from-slate-50/50 to-electric-50/20 dark:from-slate-900/50 dark:to-slate-800/50">
       <div className="container mx-auto max-w-4xl">
@@ -98,8 +134,19 @@ const PricingSection = () => {
                   <span className="text-sm">Priority support</span>
                 </div>
               </div>
-              <Button className="w-full mt-6 bg-electric-500 hover:bg-electric-600 text-white" disabled>
-                Coming Soon
+              <Button
+                className="w-full mt-6 bg-electric-500 hover:bg-electric-600 text-white"
+                onClick={handleSubscribe}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  "Subscribe — $9.99/mo"
+                )}
               </Button>
             </CardContent>
           </Card>
