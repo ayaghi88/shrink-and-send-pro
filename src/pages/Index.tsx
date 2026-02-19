@@ -4,13 +4,15 @@ import { useTestMode } from "@/hooks/useTestMode";
 import Header from "@/components/Header";
 import FileUploadZone from "@/components/FileUploadZone";
 import CompressionSettings, { CompressionLevel } from "@/components/CompressionSettings";
+import EmailComposer from "@/components/EmailComposer";
 import PricingSection from "@/components/PricingSection";
 import TestModeBanner from "@/components/TestModeBanner";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowRight, Sparkles, Check, Loader2, Download, FileDown } from "lucide-react";
+import { ArrowRight, Sparkles, Check, Loader2, Download, FileDown, Mail } from "lucide-react";
 import { compressFiles, CompressedFile, downloadAllFiles } from "@/services/fileCompressionService";
+import { sendEmail } from "@/services/emailService";
 
 interface FileItem {
   id: string;
@@ -28,6 +30,8 @@ const Index = () => {
   const [downloadComplete, setDownloadComplete] = useState(false);
   const [compressedFiles, setCompressedFiles] = useState<CompressedFile[]>([]);
   const [compressionProgress, setCompressionProgress] = useState({ completed: 0, total: 0 });
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const { toast } = useToast();
   const { isTestMode, disableTestMode } = useTestMode();
   const steps = [
@@ -69,6 +73,7 @@ const Index = () => {
     if (currentStep > 1) {
       setDownloadComplete(false);
       setCompressedFiles([]);
+      setShowEmailForm(false);
       setCurrentStep(currentStep - 1);
     }
   };
@@ -118,6 +123,34 @@ const Index = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const handleSendEmail = async (emailData: {
+    recipients: string[];
+    subject: string;
+    message: string;
+    replyTo?: string;
+  }) => {
+    setIsSendingEmail(true);
+    try {
+      const emailResult = await sendEmail({
+        ...emailData,
+        files: files.map(f => f.file),
+      }, compressionLevel);
+
+      if (emailResult.success) {
+        toast({ title: "Email sent!", description: `Files delivered to ${emailData.recipients.length} recipient(s).` });
+        setShowEmailForm(false);
+      } else {
+        throw new Error(emailResult.error || "Failed to send email");
+      }
+    } catch (error: any) {
+      console.error("Email error:", error);
+      toast({ title: "Error sending email", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
 
   const totalOriginal = compressedFiles.reduce((s, f) => s + f.originalSize, 0);
   const totalCompressed = compressedFiles.reduce((s, f) => s + f.compressedSize, 0);
@@ -275,8 +308,36 @@ const Index = () => {
                     })}
                   </div>
 
+                  {/* Email Option */}
+                  {!showEmailForm && (
+                    <div className="text-center">
+                      <Button variant="outline" onClick={() => setShowEmailForm(true)} className="gap-2">
+                        <Mail className="w-4 h-4" />
+                        Also send via email
+                      </Button>
+                    </div>
+                  )}
+
+                  {showEmailForm && (
+                    <>
+                      <div className="relative flex items-center justify-center">
+                        <div className="border-t border-border w-full" />
+                        <span className="bg-background px-4 text-sm text-muted-foreground absolute">
+                          Email delivery
+                        </span>
+                      </div>
+                      {isSendingEmail && (
+                        <div className="bg-card rounded-xl border border-border p-6 shadow-sm text-center space-y-3">
+                          <Loader2 className="w-6 h-6 animate-spin mx-auto text-electric-500" />
+                          <p className="text-muted-foreground">Sending email…</p>
+                        </div>
+                      )}
+                      {!isSendingEmail && <EmailComposer onSend={handleSendEmail} />}
+                    </>
+                  )}
+
                   <p className="text-center text-sm text-muted-foreground">
-                    Download your files and share them via email, messaging, or any app you prefer.
+                    Or download your files and share them however you prefer.
                   </p>
                 </>
               )}
