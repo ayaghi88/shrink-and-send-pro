@@ -153,7 +153,7 @@ const PricingSection = () => {
         </div>
 
         <div className="text-center mt-8 text-sm text-muted-foreground">
-          <p>All plans include secure email delivery and file encryption</p>
+          <p>All plans include secure email delivery and client-side compression</p>
         </div>
       </div>
     </section>
