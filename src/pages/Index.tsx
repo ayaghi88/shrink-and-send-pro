@@ -79,12 +79,24 @@ const Index = () => {
     }
   };
 
+  const MAX_TOTAL_SIZE = 20 * 1024 * 1024; // 20MB
+
+  const totalSizeExceeded = getTotalSize() > MAX_TOTAL_SIZE;
+
   const handleSendEmail = async (emailData: {
     recipients: string[];
     subject: string;
     message: string;
     replyTo?: string;
   }) => {
+    if (totalSizeExceeded) {
+      toast({
+        title: "Files too large",
+        description: `Total attachment size exceeds 20 MB. Please remove some files or use smaller ones.`,
+        variant: "destructive",
+      });
+      return;
+    }
     console.log("Sending email with data:", emailData);
     console.log("Files to compress:", files);
     console.log("Compression level:", compressionLevel);
@@ -254,6 +266,15 @@ const Index = () => {
             </Button>
           )}
         </div>
+
+        {/* Size warning */}
+        {files.length > 0 && totalSizeExceeded && (
+          <div className="flex justify-center mt-4">
+            <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-5 py-3 text-sm max-w-xl text-center">
+              ⚠️ Total attachment size ({formatFileSize(getTotalSize())}) exceeds the 20 MB limit. Please remove some files before sending.
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Pricing Section */}
