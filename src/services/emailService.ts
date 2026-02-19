@@ -57,10 +57,19 @@ export const sendEmail = async (emailData: EmailData, compressionLevel: string):
     const files = emailData.files || [];
 
     // Compress all files into a single zip on-device
-    const { base64, originalSize, compressedSize } = await compressFilesToZip(files, compressionLevel);
+    const { base64, blob, originalSize, compressedSize } = await compressFilesToZip(files, compressionLevel);
     console.log(
       `Compressed ${files.length} files: ${(originalSize / 1024 / 1024).toFixed(2)} MB → ${(compressedSize / 1024 / 1024).toFixed(2)} MB`
     );
+
+    // Resend has a 40MB attachment limit; base64 inflates ~33%
+    if (compressedSize > 25 * 1024 * 1024) {
+      return {
+        success: false,
+        message: "Compressed file is too large to email (max ~25 MB). Use the download option instead.",
+        error: "File too large for email delivery",
+      };
+    }
 
     const { supabase } = await import("@/integrations/supabase/client");
 

@@ -10,7 +10,7 @@ import PricingSection from "@/components/PricingSection";
 import TestModeBanner from "@/components/TestModeBanner";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { sendEmail, compressFiles } from "@/services/emailService";
+import { sendEmail, compressFiles, compressFilesToZip } from "@/services/emailService";
 
 interface FileItem {
   id: string;
@@ -85,6 +85,34 @@ const Index = () => {
 
   const totalSizeExceeded = getTotalSize() > MAX_TOTAL_SIZE;
 
+  const handleDownload = async () => {
+    if (files.length === 0) return;
+    setIsProcessing(true);
+    try {
+      const { blob } = await compressFilesToZip(
+        files.map((f) => f.file),
+        compressionLevel
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "compressed-files.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      handleProcessingComplete();
+    } catch (error) {
+      console.error("Download error:", error);
+      setIsProcessing(false);
+      toast({
+        title: "Error compressing files",
+        description: "There was a problem compressing your files. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSendEmail = async (emailData: {
     recipients: string[];
     subject: string;
@@ -94,7 +122,7 @@ const Index = () => {
     if (totalSizeExceeded) {
       toast({
         title: "Files too large",
-        description: `Total attachment size exceeds 20 MB. Please remove some files or use smaller ones.`,
+        description: `Total attachment size exceeds ${isTestMode ? "2 GB" : "20 MB"}. Please remove some files or use smaller ones.`,
         variant: "destructive",
       });
       return;
@@ -106,11 +134,7 @@ const Index = () => {
     setIsProcessing(true);
     
     try {
-      // Get file info for UI
-      const compressionResult = await compressFiles(files, compressionLevel);
-      console.log("Compression info:", compressionResult);
-      
-      // Send the email with files (compression happens on backend)
+      // Send the email with files
       const emailResult = await sendEmail({
         ...emailData,
         files: files.map(f => f.file) as any
@@ -118,6 +142,7 @@ const Index = () => {
       
       if (emailResult.success) {
         console.log("Email sent successfully:", emailResult.message);
+        handleProcessingComplete();
       } else {
         throw new Error(emailResult.error || "Failed to send email");
       }
@@ -242,7 +267,26 @@ const Index = () => {
           )}
 
           {currentStep === 3 && (
-            <EmailComposer onSend={handleSendEmail} />
+            <div className="space-y-6">
+              <EmailComposer onSend={handleSendEmail} />
+              
+              <div className="w-full max-w-4xl mx-auto">
+                <div className="relative flex items-center justify-center my-6">
+                  <div className="border-t border-border w-full" />
+                  <span className="bg-background px-4 text-sm text-muted-foreground absolute">or</span>
+                </div>
+                
+                <Button
+                  onClick={handleDownload}
+                  variant="outline"
+                  className="w-full py-6 text-base"
+                  disabled={files.length === 0}
+                >
+                  <ArrowRight className="w-5 h-5 mr-2 rotate-90" />
+                  Download Compressed ZIP
+                </Button>
+              </div>
+            </div>
           )}
         </div>
 
