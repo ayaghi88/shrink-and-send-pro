@@ -244,15 +244,17 @@ const Index = () => {
             <div className="w-full max-w-4xl mx-auto space-y-6">
               {/* Processing State */}
               {isProcessing && (
-                <div className="bg-card rounded-xl border border-border p-8 shadow-sm space-y-6">
-                  <div className="flex items-center justify-center gap-3">
-                    <Loader2 className="w-8 h-8 animate-spin text-electric-500" />
-                    <h3 className="text-xl font-semibold text-foreground">Compressing your files…</h3>
+                <div className="fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-4 shadow-lg">
+                  <div className="max-w-4xl mx-auto space-y-3">
+                    <div className="flex items-center justify-center gap-3">
+                      <Loader2 className="w-6 h-6 animate-spin text-electric-500" />
+                      <h3 className="text-lg font-semibold text-foreground">Compressing your files…</h3>
+                    </div>
+                    <Progress value={progressPct} className="h-2" />
+                    <p className="text-center text-sm text-muted-foreground">
+                      {compressionProgress.completed} of {compressionProgress.total} files processed ({progressPct}%)
+                    </p>
                   </div>
-                  <Progress value={progressPct} className="h-3" />
-                  <p className="text-center text-muted-foreground">
-                    {compressionProgress.completed} of {compressionProgress.total} files processed ({progressPct}%)
-                  </p>
                 </div>
               )}
 
