@@ -91,9 +91,7 @@ const Index = () => {
     }
   };
 
-  const MAX_TOTAL_SIZE = isTestMode ? 2 * 1024 * 1024 * 1024 : 20 * 1024 * 1024; // 2GB in test mode, 20MB otherwise
-
-  const totalSizeExceeded = getTotalSize() > MAX_TOTAL_SIZE;
+  // Size limit only applies to email, not download. Email service checks compressed size.
 
   const handleCompressAndDownload = async () => {
     if (files.length === 0) return;
@@ -151,14 +149,6 @@ const Index = () => {
     message: string;
     replyTo?: string;
   }) => {
-    if (totalSizeExceeded) {
-      toast({
-        title: "Files too large",
-        description: `Total attachment size exceeds ${isTestMode ? "2 GB" : "20 MB"}. Please remove some files or use smaller ones.`,
-        variant: "destructive",
-      });
-      return;
-    }
     console.log("Sending email with data:", emailData);
     console.log("Files to compress:", files);
     console.log("Compression level:", compressionLevel);
@@ -366,7 +356,6 @@ const Index = () => {
             <Button
               onClick={handleNextStep}
               className="bg-electric-500 hover:bg-electric-600 text-white px-8"
-              disabled={totalSizeExceeded}
             >
               Compress & Download
               <ArrowRight className="w-4 h-4 ml-2" />
@@ -374,14 +363,6 @@ const Index = () => {
           )}
         </div>
 
-        {/* Size warning */}
-        {files.length > 0 && totalSizeExceeded && (
-          <div className="flex justify-center mt-4">
-            <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-5 py-3 text-sm max-w-xl text-center">
-              ⚠️ Total attachment size ({formatFileSize(getTotalSize())}) exceeds the 20 MB limit. Please remove some files before sending.
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Pricing Section */}
