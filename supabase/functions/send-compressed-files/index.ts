@@ -51,7 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
       from: "Shrink & Send <contact@amberyaghi.org>",
       to: recipients,
       subject: subject,
-      reply_to: replyTo,
+      reply_to: replyTo || "customer.service@shrinkandsend.com",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Files Delivered</h2>
