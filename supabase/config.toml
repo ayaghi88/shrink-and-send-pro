@@ -2,3 +2,6 @@ project_id = "bctixyvmwcarmgkhedxe"
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.send-compressed-files]
+verify_jwt = false

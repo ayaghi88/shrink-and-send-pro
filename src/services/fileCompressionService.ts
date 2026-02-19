@@ -10,15 +10,15 @@ export interface CompressedFile {
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/bmp", "image/gif"];
 
 const qualitySettings: Record<string, number> = {
-  basic: 0.7,
-  medium: 0.5,
-  max: 0.3,
+  basic: 0.5,
+  medium: 0.3,
+  max: 0.15,
 };
 
 const maxWidthSettings: Record<string, number> = {
-  basic: 3840,
-  medium: 2560,
-  max: 1920,
+  basic: 2560,
+  medium: 1920,
+  max: 1280,
 };
 
 /** Compress a single image using canvas-based re-encoding */
@@ -28,7 +28,7 @@ async function compressImage(file: File, compressionLevel: string): Promise<Comp
 
   try {
     const compressed = await imageCompression(file, {
-      maxSizeMB: compressionLevel === "max" ? 1 : compressionLevel === "medium" ? 3 : 5,
+      maxSizeMB: compressionLevel === "max" ? 0.5 : compressionLevel === "medium" ? 1 : 3,
       maxWidthOrHeight,
       useWebWorker: true,
       fileType: file.type as any,
