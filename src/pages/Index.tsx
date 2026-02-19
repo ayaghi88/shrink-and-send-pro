@@ -4,15 +4,13 @@ import { useTestMode } from "@/hooks/useTestMode";
 import Header from "@/components/Header";
 import FileUploadZone from "@/components/FileUploadZone";
 import CompressionSettings, { CompressionLevel } from "@/components/CompressionSettings";
-import EmailComposer from "@/components/EmailComposer";
-import ProgressModal from "@/components/ProgressModal";
 import PricingSection from "@/components/PricingSection";
 import TestModeBanner from "@/components/TestModeBanner";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Check, Loader2, Mail } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { ArrowRight, Sparkles, Check, Loader2, Download, FileDown } from "lucide-react";
 import { compressFiles, CompressedFile, downloadAllFiles } from "@/services/fileCompressionService";
-import { sendEmail } from "@/services/emailService";
 
 interface FileItem {
   id: string;
@@ -30,7 +28,6 @@ const Index = () => {
   const [downloadComplete, setDownloadComplete] = useState(false);
   const [compressedFiles, setCompressedFiles] = useState<CompressedFile[]>([]);
   const [compressionProgress, setCompressionProgress] = useState({ completed: 0, total: 0 });
-  const [showEmailForm, setShowEmailForm] = useState(false);
   const { toast } = useToast();
   const { isTestMode, disableTestMode } = useTestMode();
   const steps = [
@@ -38,10 +35,6 @@ const Index = () => {
     { number: 2, title: "Choose Compression", description: "Select compression level" },
     { number: 3, title: "Compress & Download", description: "Get your compressed files" }
   ];
-
-  const getTotalSize = () => {
-    return files.reduce((total, file) => total + file.size, 0);
-  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -51,57 +44,40 @@ const Index = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const getTotalSize = () => files.reduce((total, file) => total + file.size, 0);
+
   const getCompressionReduction = () => {
-    const reductions = {
-      basic: 0.4,
-      medium: 0.6,
-      max: 0.78
-    };
+    const reductions = { basic: 0.4, medium: 0.6, max: 0.78 };
     return reductions[compressionLevel];
   };
 
-  const getEstimatedSize = () => {
-    const totalSize = getTotalSize();
-    const reduction = getCompressionReduction();
-    return totalSize * (1 - reduction);
-  };
+  const getEstimatedSize = () => getTotalSize() * (1 - getCompressionReduction());
 
   const handleNextStep = () => {
     if (currentStep === 1 && files.length === 0) {
-      toast({
-        title: "No files selected",
-        description: "Please add some files to continue.",
-        variant: "destructive"
-      });
+      toast({ title: "No files selected", description: "Please add some files to continue.", variant: "destructive" });
       return;
     }
-    
     if (currentStep === 2) {
-      // Auto-compress and download when moving to step 3
       handleCompressAndDownload();
       return;
     }
-
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
-    }
+    if (currentStep < 3) setCurrentStep(currentStep + 1);
   };
 
   const handlePreviousStep = () => {
     if (currentStep > 1) {
       setDownloadComplete(false);
       setCompressedFiles([]);
-      setShowEmailForm(false);
       setCurrentStep(currentStep - 1);
     }
   };
-
-  // Size limit only applies to email, not download. Email service checks compressed size.
 
   const handleCompressAndDownload = async () => {
     if (files.length === 0) return;
     setIsProcessing(true);
     setCurrentStep(3);
+    setCompressionProgress({ completed: 0, total: files.length });
     try {
       const results = await compressFiles(
         files.map((f) => f.file),
@@ -109,10 +85,6 @@ const Index = () => {
         (completed, total) => setCompressionProgress({ completed, total })
       );
       setCompressedFiles(results);
-
-      // Download all files individually
-      await downloadAllFiles(results);
-
       setIsProcessing(false);
       setDownloadComplete(true);
 
@@ -121,75 +93,36 @@ const Index = () => {
       const savedPct = totalOriginal > 0 ? Math.round((1 - totalCompressed / totalOriginal) * 100) : 0;
 
       toast({
-        title: "Downloads started!",
-        description: `${results.length} file(s) downloading. Saved ${savedPct}% on images.`,
+        title: "Compression complete!",
+        description: `${results.length} file(s) ready. Saved ${savedPct}% on images.`,
       });
     } catch (error) {
       console.error("Compression error:", error);
       setIsProcessing(false);
-      toast({
-        title: "Error compressing files",
-        description: "There was a problem compressing your files. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error compressing files", description: "There was a problem compressing your files. Please try again.", variant: "destructive" });
     }
   };
 
-  const handleRedownload = async () => {
+  const handleDownloadAll = async () => {
     if (compressedFiles.length === 0) return;
     await downloadAllFiles(compressedFiles);
   };
 
-  const handleSendEmail = async (emailData: {
-    recipients: string[];
-    subject: string;
-    message: string;
-    replyTo?: string;
-  }) => {
-    console.log("Sending email with data:", emailData);
-    console.log("Files to compress:", files);
-    console.log("Compression level:", compressionLevel);
-    
-    setIsProcessing(true);
-    
-    try {
-      // Send the email with files
-      const emailResult = await sendEmail({
-        ...emailData,
-        files: files.map(f => f.file) as any
-      }, compressionLevel);
-      
-      if (emailResult.success) {
-        console.log("Email sent successfully:", emailResult.message);
-        handleProcessingComplete();
-      } else {
-        throw new Error(emailResult.error || "Failed to send email");
-      }
-      
-    } catch (error) {
-      console.error("Error in email process:", error);
-      setIsProcessing(false);
-      toast({
-        title: "Error sending email",
-        description: (error as any)?.message || "There was a problem sending your files. Please try again.",
-        variant: "destructive"
-      });
-    }
+  const handleDownloadSingle = (file: CompressedFile) => {
+    const url = URL.createObjectURL(file.blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
-  const handleProcessingComplete = () => {
-    setIsProcessing(false);
-    setDownloadComplete(false);
-    setCompressedFiles([]);
-    setShowEmailForm(false);
-    setFiles([]);
-    setCurrentStep(1);
-    
-    toast({
-      title: "Files sent successfully!",
-      description: "Your compressed files have been delivered via email.",
-    });
-  };
+  const totalOriginal = compressedFiles.reduce((s, f) => s + f.originalSize, 0);
+  const totalCompressed = compressedFiles.reduce((s, f) => s + f.compressedSize, 0);
+  const savedPct = totalOriginal > 0 ? Math.round((1 - totalCompressed / totalOriginal) * 100) : 0;
+  const progressPct = compressionProgress.total > 0 ? Math.round((compressionProgress.completed / compressionProgress.total) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-electric-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800">
@@ -202,17 +135,14 @@ const Index = () => {
             <Sparkles className="w-4 h-4" />
             <span>Big Files. One Click. No Stress.</span>
           </div>
-          
           <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
             Professional delivery<br />
             <span className="bg-gradient-to-r from-electric-600 to-electric-500 bg-clip-text text-transparent">
               made simple
             </span>
           </h1>
-          
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Send portfolios, pitches, or proof — without ever shrinking your standards.
-            Compress multiple files and deliver them via secure email.
+            Compress your files and download them instantly — then share however you like.
           </p>
         </div>
 
@@ -229,7 +159,7 @@ const Index = () => {
                         : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                     }`}
                   >
-                    {step.number}
+                    {currentStep > step.number ? <Check className="w-5 h-5" /> : step.number}
                   </div>
                   <div className="hidden md:block">
                     <p className={`font-medium ${currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'}`}>
@@ -238,7 +168,6 @@ const Index = () => {
                     <p className="text-sm text-muted-foreground">{step.description}</p>
                   </div>
                 </div>
-                
                 {index < steps.length - 1 && (
                   <ArrowRight className="w-5 h-5 text-muted-foreground mx-4" />
                 )}
@@ -255,32 +184,22 @@ const Index = () => {
 
           {currentStep === 2 && (
             <div className="space-y-8">
-              <CompressionSettings
-                selectedLevel={compressionLevel}
-                onLevelChange={setCompressionLevel}
-              />
-              
+              <CompressionSettings selectedLevel={compressionLevel} onLevelChange={setCompressionLevel} />
               {files.length > 0 && (
                 <div className="bg-card rounded-xl border border-border p-6 shadow-sm max-w-4xl mx-auto">
                   <h4 className="font-semibold text-foreground mb-4">Compression Preview</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                     <div>
-                      <p className="text-2xl font-bold text-slate-600 dark:text-slate-400">
-                        {formatFileSize(getTotalSize())}
-                      </p>
+                      <p className="text-2xl font-bold text-slate-600 dark:text-slate-400">{formatFileSize(getTotalSize())}</p>
                       <p className="text-sm text-muted-foreground">Original Size</p>
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-electric-600">
-                        {formatFileSize(getEstimatedSize())}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Compressed Size</p>
+                      <p className="text-2xl font-bold text-electric-600">{formatFileSize(getEstimatedSize())}</p>
+                      <p className="text-sm text-muted-foreground">Estimated Compressed</p>
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-green-600">
-                        {Math.round(getCompressionReduction() * 100)}%
-                      </p>
-                      <p className="text-sm text-muted-foreground">Size Reduction</p>
+                      <p className="text-2xl font-bold text-green-600">{Math.round(getCompressionReduction() * 100)}%</p>
+                      <p className="text-sm text-muted-foreground">Estimated Reduction</p>
                     </div>
                   </div>
                 </div>
@@ -289,56 +208,76 @@ const Index = () => {
           )}
 
           {currentStep === 3 && (
-            <div className="w-full max-w-4xl mx-auto space-y-8">
-              {/* Download Complete Section */}
-              {downloadComplete && (
-                <div className="bg-card rounded-xl border border-border p-8 shadow-sm text-center space-y-4">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground">Download Complete!</h3>
-                  <p className="text-muted-foreground">Your compressed files have been downloaded.</p>
-                  <Button onClick={handleRedownload} variant="outline">
-                    Download Again
-                  </Button>
-                </div>
-              )}
-
+            <div className="w-full max-w-4xl mx-auto space-y-6">
+              {/* Processing State */}
               {isProcessing && (
-                <div className="bg-card rounded-xl border border-border p-8 shadow-sm text-center space-y-4">
-                  <Loader2 className="w-10 h-10 animate-spin mx-auto text-electric-500" />
-                  <h3 className="text-xl font-semibold text-foreground">Compressing your files...</h3>
-                  <p className="text-muted-foreground">
-                    {compressionProgress.total > 0
-                      ? `Processing ${compressionProgress.completed} of ${compressionProgress.total} files...`
-                      : "This may take a moment."}
+                <div className="bg-card rounded-xl border border-border p-8 shadow-sm space-y-6">
+                  <div className="flex items-center justify-center gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-electric-500" />
+                    <h3 className="text-xl font-semibold text-foreground">Compressing your files…</h3>
+                  </div>
+                  <Progress value={progressPct} className="h-3" />
+                  <p className="text-center text-muted-foreground">
+                    {compressionProgress.completed} of {compressionProgress.total} files processed ({progressPct}%)
                   </p>
                 </div>
               )}
 
-              {/* Optional Email Toggle */}
-              {downloadComplete && !showEmailForm && (
-                <div className="text-center">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowEmailForm(true)}
-                    className="gap-2"
-                  >
-                    <Mail className="w-4 h-4" />
-                    Also send via email
-                  </Button>
-                </div>
-              )}
-
-              {downloadComplete && showEmailForm && (
+              {/* Results */}
+              {downloadComplete && (
                 <>
-                  <div className="relative flex items-center justify-center">
-                    <div className="border-t border-border w-full" />
-                    <span className="bg-background px-4 text-sm text-muted-foreground absolute">
-                      Email delivery (optional)
-                    </span>
+                  {/* Summary Card */}
+                  <div className="bg-card rounded-xl border border-border p-8 shadow-sm text-center space-y-4">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                      <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground">Compression Complete!</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
+                      <div>
+                        <p className="text-lg font-bold text-slate-600 dark:text-slate-400">{formatFileSize(totalOriginal)}</p>
+                        <p className="text-xs text-muted-foreground">Original</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-electric-600">{formatFileSize(totalCompressed)}</p>
+                        <p className="text-xs text-muted-foreground">Compressed</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-green-600">{savedPct}%</p>
+                        <p className="text-xs text-muted-foreground">Saved</p>
+                      </div>
+                    </div>
+                    <Button onClick={handleDownloadAll} className="bg-electric-500 hover:bg-electric-600 text-white gap-2 mt-2">
+                      <Download className="w-4 h-4" />
+                      Download All Files
+                    </Button>
                   </div>
-                  <EmailComposer onSend={handleSendEmail} />
+
+                  {/* Individual File List */}
+                  <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
+                    {compressedFiles.map((file, idx) => {
+                      const fileSaved = file.originalSize > 0 ? Math.round((1 - file.compressedSize / file.originalSize) * 100) : 0;
+                      const isImage = /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(file.name);
+                      return (
+                        <div key={idx} className="flex items-center justify-between px-5 py-4">
+                          <div className="flex-1 min-w-0 mr-4">
+                            <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(file.originalSize)} → {formatFileSize(file.compressedSize)}
+                              {isImage ? ` (−${fileSaved}%)` : ' (unchanged)'}
+                            </p>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => handleDownloadSingle(file)} className="gap-1.5 shrink-0">
+                            <FileDown className="w-4 h-4" />
+                            Download
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-center text-sm text-muted-foreground">
+                    Download your files and share them via email, messaging, or any app you prefer.
+                  </p>
                 </>
               )}
             </div>
@@ -348,50 +287,27 @@ const Index = () => {
         {/* Navigation */}
         <div className="flex justify-center space-x-4 mt-12">
           {currentStep > 1 && (
-            <Button
-              variant="outline"
-              onClick={handlePreviousStep}
-              className="px-8"
-            >
+            <Button variant="outline" onClick={handlePreviousStep} className="px-8">
               Previous
             </Button>
           )}
-          
           {currentStep === 1 && (
-            <Button
-              onClick={handleNextStep}
-              className="bg-electric-500 hover:bg-electric-600 text-white px-8"
-            >
+            <Button onClick={handleNextStep} className="bg-electric-500 hover:bg-electric-600 text-white px-8">
               Continue
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           )}
-          
           {currentStep === 2 && (
-            <Button
-              onClick={handleNextStep}
-              className="bg-electric-500 hover:bg-electric-600 text-white px-8"
-            >
+            <Button onClick={handleNextStep} className="bg-electric-500 hover:bg-electric-600 text-white px-8">
               Compress & Download
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           )}
         </div>
-
       </main>
 
-      {/* Pricing Section */}
       <PricingSection />
-
-      {/* Footer */}
       <Footer />
-
-      <ProgressModal
-        isOpen={isProcessing}
-        onClose={() => setIsProcessing(false)}
-        onComplete={handleProcessingComplete}
-      />
-
       {isTestMode && <TestModeBanner onDisable={disableTestMode} />}
     </div>
   );
