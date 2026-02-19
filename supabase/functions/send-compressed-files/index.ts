@@ -48,7 +48,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email with attachments
     const emailResponse = await resend.emails.send({
-      from: "File Delivery <onboarding@resend.dev>",
+      from: "Shrink & Send <contact@amberyaghi.org>",
       to: recipients,
       subject: subject,
       reply_to: replyTo,
