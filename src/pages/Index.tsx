@@ -9,7 +9,7 @@ import ProgressModal from "@/components/ProgressModal";
 import PricingSection from "@/components/PricingSection";
 import TestModeBanner from "@/components/TestModeBanner";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Check, Loader2 } from "lucide-react";
+import { ArrowRight, Sparkles, Check, Loader2, Mail } from "lucide-react";
 import { sendEmail, compressFiles, compressFilesToZip } from "@/services/emailService";
 
 interface FileItem {
@@ -27,6 +27,7 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadComplete, setDownloadComplete] = useState(false);
   const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null);
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const { toast } = useToast();
   const { isTestMode, disableTestMode } = useTestMode();
   const steps = [
@@ -87,6 +88,7 @@ const Index = () => {
     if (currentStep > 1) {
       setDownloadComplete(false);
       setCompressedBlob(null);
+      setShowEmailForm(false);
       setCurrentStep(currentStep - 1);
     }
   };
@@ -184,6 +186,7 @@ const Index = () => {
     setIsProcessing(false);
     setDownloadComplete(false);
     setCompressedBlob(null);
+    setShowEmailForm(false);
     setFiles([]);
     setCurrentStep(1);
     
@@ -314,13 +317,26 @@ const Index = () => {
                 </div>
               )}
 
-              {/* Optional Email Section */}
-              {downloadComplete && (
+              {/* Optional Email Toggle */}
+              {downloadComplete && !showEmailForm && (
+                <div className="text-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowEmailForm(true)}
+                    className="gap-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Also send via email
+                  </Button>
+                </div>
+              )}
+
+              {downloadComplete && showEmailForm && (
                 <>
                   <div className="relative flex items-center justify-center">
                     <div className="border-t border-border w-full" />
                     <span className="bg-background px-4 text-sm text-muted-foreground absolute">
-                      Want to email it too?
+                      Email delivery (optional)
                     </span>
                   </div>
                   <EmailComposer onSend={handleSendEmail} />
