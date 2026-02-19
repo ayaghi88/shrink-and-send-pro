@@ -11,7 +11,8 @@ import TestModeBanner from "@/components/TestModeBanner";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, Check, Loader2, Mail } from "lucide-react";
-import { sendEmail, compressFiles, compressFilesToZip } from "@/services/emailService";
+import { compressFiles, CompressedFile, downloadAllFiles } from "@/services/fileCompressionService";
+import { sendEmail } from "@/services/emailService";
 
 interface FileItem {
   id: string;
@@ -27,7 +28,8 @@ const Index = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadComplete, setDownloadComplete] = useState(false);
-  const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null);
+  const [compressedFiles, setCompressedFiles] = useState<CompressedFile[]>([]);
+  const [compressionProgress, setCompressionProgress] = useState({ completed: 0, total: 0 });
   const [showEmailForm, setShowEmailForm] = useState(false);
   const { toast } = useToast();
   const { isTestMode, disableTestMode } = useTestMode();
@@ -88,7 +90,7 @@ const Index = () => {
   const handlePreviousStep = () => {
     if (currentStep > 1) {
       setDownloadComplete(false);
-      setCompressedBlob(null);
+      setCompressedFiles([]);
       setShowEmailForm(false);
       setCurrentStep(currentStep - 1);
     }
@@ -101,27 +103,26 @@ const Index = () => {
     setIsProcessing(true);
     setCurrentStep(3);
     try {
-      const { blob } = await compressFilesToZip(
+      const results = await compressFiles(
         files.map((f) => f.file),
-        compressionLevel
+        compressionLevel,
+        (completed, total) => setCompressionProgress({ completed, total })
       );
-      setCompressedBlob(blob);
+      setCompressedFiles(results);
 
-      // Auto-download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "compressed-files.zip";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Download all files individually
+      await downloadAllFiles(results);
 
       setIsProcessing(false);
       setDownloadComplete(true);
+
+      const totalOriginal = results.reduce((s, f) => s + f.originalSize, 0);
+      const totalCompressed = results.reduce((s, f) => s + f.compressedSize, 0);
+      const savedPct = totalOriginal > 0 ? Math.round((1 - totalCompressed / totalOriginal) * 100) : 0;
+
       toast({
-        title: "Download started!",
-        description: "Your compressed files are downloading.",
+        title: "Downloads started!",
+        description: `${results.length} file(s) downloading. Saved ${savedPct}% on images.`,
       });
     } catch (error) {
       console.error("Compression error:", error);
@@ -134,16 +135,9 @@ const Index = () => {
     }
   };
 
-  const handleRedownload = () => {
-    if (!compressedBlob) return;
-    const url = URL.createObjectURL(compressedBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "compressed-files.zip";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleRedownload = async () => {
+    if (compressedFiles.length === 0) return;
+    await downloadAllFiles(compressedFiles);
   };
 
   const handleSendEmail = async (emailData: {
@@ -186,7 +180,7 @@ const Index = () => {
   const handleProcessingComplete = () => {
     setIsProcessing(false);
     setDownloadComplete(false);
-    setCompressedBlob(null);
+    setCompressedFiles([]);
     setShowEmailForm(false);
     setFiles([]);
     setCurrentStep(1);
@@ -314,7 +308,11 @@ const Index = () => {
                 <div className="bg-card rounded-xl border border-border p-8 shadow-sm text-center space-y-4">
                   <Loader2 className="w-10 h-10 animate-spin mx-auto text-electric-500" />
                   <h3 className="text-xl font-semibold text-foreground">Compressing your files...</h3>
-                  <p className="text-muted-foreground">This may take a moment.</p>
+                  <p className="text-muted-foreground">
+                    {compressionProgress.total > 0
+                      ? `Processing ${compressionProgress.completed} of ${compressionProgress.total} files...`
+                      : "This may take a moment."}
+                  </p>
                 </div>
               )}
 
