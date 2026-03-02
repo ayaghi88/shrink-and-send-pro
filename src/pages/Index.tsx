@@ -92,6 +92,7 @@ const Index = () => {
       setCompressedFiles(results);
       setIsProcessing(false);
       setDownloadComplete(true);
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
 
       const totalOriginal = results.reduce((s, f) => s + f.originalSize, 0);
       const totalCompressed = results.reduce((s, f) => s + f.compressedSize, 0);
