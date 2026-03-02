@@ -42,10 +42,9 @@ serve(async (req) => {
     if (returnUrl) {
       try {
         const url = new URL(returnUrl);
-        const allowedHosts = ["shrink-and-send-pro.lovable.app", "localhost"];
-        // Also allow the preview URL host
-        const previewPattern = /\.lovable\.app$/;
-        if (!allowedHosts.includes(url.hostname) && !previewPattern.test(url.hostname)) {
+        const allowedHosts = ["shrink-and-send-pro.lovable.app", "shrinkandsend.com", "www.shrinkandsend.com", "localhost"];
+        const allowedPatterns = [/\.lovable\.app$/, /\.lovableproject\.com$/];
+        if (!allowedHosts.includes(url.hostname) && !allowedPatterns.some(p => p.test(url.hostname))) {
           throw new Error("Invalid return URL");
         }
       } catch {
