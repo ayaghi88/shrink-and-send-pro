@@ -92,6 +92,9 @@ const EmailComposer = ({ onSend }: EmailComposerProps) => {
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Type an email address and press <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[10px] font-mono">+</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[10px] font-mono">Enter</kbd> to add a recipient
+              </p>
               
               {recipients.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-3">
