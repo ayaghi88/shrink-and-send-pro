@@ -26,7 +26,11 @@ const PricingSection = () => {
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        // Use window.open as fallback if location.href doesn't work (e.g. in iframes)
+        const opened = window.open(data.url, '_blank');
+        if (!opened) {
+          window.location.href = data.url;
+        }
       }
     } catch (err: any) {
       console.error("Checkout error:", err);
